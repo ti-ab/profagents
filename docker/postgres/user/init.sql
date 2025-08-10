@@ -2,7 +2,7 @@ create schema if not exists users;
 set search_path to users;
 
 CREATE TABLE IF NOT EXISTS progress (
-    id              BIGINT          PRIMARY KEY,
+    id BIGSERIAL PRIMARY KEY,
     user_id         BIGINT          NOT NULL,
     book_id         BIGINT          NOT NULL,
     chapter_id      BIGINT,

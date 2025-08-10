@@ -93,7 +93,7 @@ export default function CoursePage({ appConfig, courseId }: AppProps) {
                         });
                     });
 
-                    await sleep(4000);
+                    await sleep(3000);
 
                     sendContext(ctxKey);
                 }
@@ -124,7 +124,7 @@ export default function CoursePage({ appConfig, courseId }: AppProps) {
         <>
 
 
-            <MotionWelcome
+            <MotionWelcome courseId={courseId}
                 key="course"
                 startButtonText={startButtonText}
                 course={course}
@@ -134,6 +134,7 @@ export default function CoursePage({ appConfig, courseId }: AppProps) {
                 animate={{ opacity: sessionStarted ? 0 : 1 }}
                 transition={{ duration: 0.5, ease: 'linear', delay: sessionStarted ? 0 : 0.5 }}
                 router={router}
+                setCtxKey={setCtxKey}
             />
 
 

@@ -2,24 +2,50 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 import {
-  type JobContext,
-  WorkerOptions,
-  cli,
-  defineAgent,
-  llm,
-  multimodal,
+    type JobContext,
+    WorkerOptions,
+    cli,
+    defineAgent,
+    llm,
+    multimodal,
 } from '@livekit/agents';
 import * as openai from '@livekit/agents-plugin-openai';
 import dotenv from 'dotenv';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { z } from 'zod';
-import { RoomEvent, DataPacket_Kind, RemoteParticipant } from 'livekit-client';
+import {fileURLToPath} from 'node:url';
+import {z} from 'zod';
+import {getLessonText} from './lessonContext.js';
+import {ensureServer} from './server.js';
+
+ensureServer();
+import {postProgress} from './progress.js';
+import {RoomEvent, DataPacket_Kind, RemoteParticipant} from 'livekit-client';
+
 
 // Chargement des variables d'environnement
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-dotenv.config({ path: path.join(__dirname, '../.env.local') });
+dotenv.config({path: path.join(__dirname, '../.env.local')});
+
+// Demo: report a 'session_started' progress event when the agent boots (replace with real hooks).
+(async () => {
+    try {
+        await postProgress({
+            userId: 1,
+            bookId: 42,
+            chapterId: 1,
+            sectionId: 1,
+            sectionTime: 0,
+            startTimestamp: new Date().toISOString()
+        });
+        // eslint-disable-next-line no-console
+        console.log('Progress event sent');
+    } catch (e) {
+        // eslint-disable-next-line no-console
+        console.warn('Could not send progress event:', e instanceof Error ? e.message : e);
+    }
+})();
+
 
 // Définition des prompts système existants
 
@@ -126,98 +152,106 @@ const pythonInstructions = `
 
 // Map des contextes disponibles
 const contexts: Record<string, string> = {
-  anglais: englishTeacherInstructions60Minutes,
-  python: pythonInstructions,
+    anglais: englishTeacherInstructions60Minutes,
+    python: pythonInstructions,
 };
-let currentContextKey = 'anglais';
+let currentContext = "Present yourself as a teacher able to teach anything";
 
 // Définition de l'agent multimodal avec contexte dynamique
 export default defineAgent({
-  entry: async (ctx: JobContext) => {
-    await ctx.connect();
-    console.log('waiting for participant');
-    const participant = await ctx.waitForParticipant();
-    console.log(`starting assistant agent for ${participant.identity}`);
+    entry: async (ctx: JobContext) => {
+        await ctx.connect();
+        console.log('waiting for participant');
+        const participant = await ctx.waitForParticipant();
+        console.log(`starting assistant agent for ${participant.identity}`);
 
 
+        // Écoute des messages de changement de contexte depuis le front-end
+        ctx.room.on(
+            RoomEvent.DataReceived,
+            async (payload, participant, kind, topic) => {
+                // Vérifie que le paquet est fiable
+                //@ts-ignore
+                if (kind != undefined && kind === DataPacket_Kind.RELIABLE) {
+                    try {
+                        const msg = JSON.parse(new TextDecoder().decode(payload));
+                        if (msg.type === 'setContext') {
+                            currentContext = `You are a caring, patient, and educational teacher.
+                            Here's what you'll teach your student: ${msg.context}`;
 
-    // Écoute des messages de changement de contexte depuis le front-end
-    ctx.room.on(
-      RoomEvent.DataReceived,
-      (payload, participant, kind, topic) => {
-        // Vérifie que le paquet est fiable
-        //@ts-ignore
-        if (kind != undefined && kind === DataPacket_Kind.RELIABLE) {
-          try {
-            const msg = JSON.parse(new TextDecoder().decode(payload));
-            if (msg.type === 'setContext' && contexts[msg.context]) {
-              currentContextKey = msg.context;
-              console.log(`Contexte changé → ${msg.context}`);
-              // Si session active, injecter un message SYSTEM avec les nouvelles instructions
-              if (session) {
-                session.conversation.item.create(
-                  llm.ChatMessage.create({
-                    role: llm.ChatRole.SYSTEM,
-                    text: contexts[currentContextKey],
-                  })
-                );
+                            console.log(`Contexte changé → ${msg.context?.length}`);
+                            // Si session active, injecter un message SYSTEM avec les nouvelles instructions
+                            if (session) {
 
-                // Demander une réponse immédiate de l'agent
-                session.response.create();
-              }
+                                await session.response.cancel();     // send client `response.cancel`
+
+                                session.conversation.item.create(
+                                    llm.ChatMessage.create({
+                                        role: llm.ChatRole.SYSTEM,
+                                        text: currentContext,
+                                    })
+                                );
+
+
+                                session.response.create();           // then start the new one
+
+                                // Demander une réponse immédiate de l'agent
+                                //session.response.create();
+                            }
+                        }
+                    } catch {
+                        // Ignorer les payloads invalides
+                    }
+                }
             }
-          } catch {
-            // Ignorer les payloads invalides
-          }
-        }
-      }
-    );
+        );
 
-    // Création du modèle OpenAI avec le prompt système selon le contexte sélectionné
-    let model = new openai.realtime.RealtimeModel({
-      model: 'gpt-4o-mini-realtime-preview',
-      instructions: contexts[currentContextKey],
-    });
+        // Création du modèle OpenAI avec le prompt système selon le contexte sélectionné
+        let model = new openai.realtime.RealtimeModel({
+            model: 'gpt-4o-mini-realtime-preview',
+            instructions: currentContext,
+        });
 
 
-    // Définition des fonctions LLM (météo)
-    const fncCtx: llm.FunctionContext = {
-      weather: {
-        description: 'Get the weather in a location',
-        parameters: z.object({
-          location: z.string().describe('The location to get the weather for'),
-        }),
-        execute: async ({ location }) => {
-          console.debug(`executing weather function for ${location}`);
-          const response = await fetch(`https://wttr.in/${location}?format=%C+%t`);
-          if (!response.ok) {
-            throw new Error(`Weather API returned status: ${response.status}`);
-          }
-          const weather = await response.text();
-          return `The weather in ${location} right now is ${weather}.`;
-        },
-      },
-    };
+        // Définition des fonctions LLM (météo)
+        const fncCtx: llm.FunctionContext = {
+            weather: {
+                description: 'Get the weather in a location',
+                parameters: z.object({
+                    location: z.string().describe('The location to get the weather for'),
+                }),
+                execute: async ({location}) => {
+                    console.debug(`executing weather function for ${location}`);
+                    const response = await fetch(`https://wttr.in/${location}?format=%C+%t`);
+                    if (!response.ok) {
+                        throw new Error(`Weather API returned status: ${response.status}`);
+                    }
+                    const weather = await response.text();
+                    return `The weather in ${location} right now is ${weather}.`;
+                },
+            },
+        };
 
-    // Instanciation et démarrage de l'agent multimodal
-    const agent = new multimodal.MultimodalAgent({ model, fncCtx });
-    const session = await agent
-      .start(ctx.room, participant)
-      .then((session) => session as openai.realtime.RealtimeSession);
+        // Instanciation et démarrage de l'agent multimodal
+        const agent = new multimodal.MultimodalAgent({model, fncCtx});
 
-    // Message initial de l'assistant
-    session.conversation.item.create(
-      llm.ChatMessage.create({
-        role: llm.ChatRole.ASSISTANT,
-        text: 'Bonjour, commençons notre leçon !',
-      })
-    );
+        const session = await agent
+            .start(ctx.room, participant)
+            .then((session) => session as openai.realtime.RealtimeSession);
 
-    session.response.create();
-  },
+        // Message initial de l'assistant
+        session.conversation.item.create(
+            llm.ChatMessage.create({
+                role: llm.ChatRole.ASSISTANT,
+                text: 'Bonjour, commençons notre leçon !',
+            })
+        );
+
+        session.response.create();
+    },
 });
 
 // Démarrage du worker via le CLI LiveKit
 cli.runApp(
-  new WorkerOptions({ agent: fileURLToPath(import.meta.url) })
+    new WorkerOptions({agent: fileURLToPath(import.meta.url)})
 );

@@ -26,6 +26,7 @@
     "@livekit/rtc-node": "^0.13.18",
     "dotenv": "^16.4.5",
     "livekit-client": "2.15.4",
-    "zod": "^3.23.8"
+    "zod": "^3.23.8",
+    "express": "^4.19.2"
   }
 }
