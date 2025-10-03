@@ -1,5 +1,5 @@
 FROM node:20-alpine
-WORKDIR /app
+WORKDIR /src
 
 ARG NODE_ENV=development
 ENV NODE_ENV=$NODE_ENV
