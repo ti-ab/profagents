@@ -125,7 +125,8 @@ CREATE TABLE courses.sections (
     first_paragraph text,
     middle_paragraph text,
     end_paragraph text,
-    content text
+    content text,
+    audioPath character varying(512),
 );
 
 

@@ -1,4 +1,3 @@
-
 package com.course.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
@@ -7,59 +6,44 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Entity
 @Table(name = "books", schema = "courses")
-@JsonIgnoreProperties(ignoreUnknown = true)
+@JsonIgnoreProperties(ignoreUnknown = true)                // garde l’ordre
 public class Book {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    @Column(nullable = false)
     private String title;
-
-    @Column
     private String authors;
+    private LocalDateTime createdAt;
 
-    @Column(name = "created_at")
-    private LocalDateTime createdAt = LocalDateTime.now();
-
-    @OneToMany(mappedBy = "book", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "book", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Chapter> chapters = new ArrayList<>();
 
-    
-    /* ===== Constructors ===== */
-    public Book() { }
+    protected Book() {/* JPA */}
+    public Book(String title, String authors) { this.title = title; this.authors = authors; }
 
-    public Book(String title, String authors) {
-        this.title = title;
-        this.authors = authors;
-    }
-/* ===== Getters / Setters ===== */
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    public void addChapter(Chapter c) { c.setBook(this); chapters.add(c); }
+    public void setCreatedAt(LocalDateTime at) { this.createdAt = at; }
 
-    public String getTitle() { return title; }
-    public void setTitle(String title) { this.title = title; }
-
-    public String getAuthors() { return authors; }
-    public void setAuthors(String authors) { this.authors = authors; }
-
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
-
-    public List<Chapter> getChapters() { return chapters; }
-    public void setChapters(List<Chapter> chapters) {
-        this.chapters = chapters != null ? chapters : new ArrayList<>();
-        for (Chapter c : this.chapters) {
-            c.setBook(this);
-        }
+    public Long getId() {
+        return id;
     }
 
-    public void addChapter(Chapter chapter) {
-        if (chapter == null) return;
-        chapters.add(chapter);
-        chapter.setBook(this);
+    public String getTitle() {
+        return title;
+    }
+
+    public String getAuthors() {
+        return authors;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public List<Chapter> getChapters() {
+        return chapters;
     }
 }

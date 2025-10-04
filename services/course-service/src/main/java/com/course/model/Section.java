@@ -19,6 +19,12 @@ public class Section {
     private String content;
     @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name = "subchapter_id")
     private Subchapter subchapter;
+    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true)
+    @JoinColumn(name = "quiz_id")
+    private Quiz quiz;
+
+    public Quiz getQuiz() { return quiz; }
+    public void setQuiz(Quiz quiz) { this.quiz = quiz; }
 
     public String title() { return title; }
     public String sectionSummary() { return sectionSummary; }

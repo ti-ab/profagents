@@ -5,6 +5,7 @@ import com.course.repository.BookRepository;
 import com.course.service.CourseService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -21,10 +22,10 @@ public class CourseController {
     }
 
     @GetMapping("/api/generate")
-    public String generateCourseBook() {
+    public String generateCourseBook(@RequestParam String bookDescription) {
 
 
-        courseService.generateCourseBook("Apprendre l'anglais pour les débutants");
+        courseService.generateCourseBook(bookDescription);
 
         return "Génération réussie!!";
 

@@ -21,8 +21,6 @@ export default function Home() {
 
     useEffect(() => {
 
-        const courseId = 1;
-
         fetch(`/api/courses`)
             .then((res) => res.json())
             .then((resJson) => {
@@ -36,9 +34,9 @@ export default function Home() {
 
   return (
     <div
-      className={`${geistSans.className} ${geistMono.className} font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20`}
+      className={`${geistSans.className} ${geistMono.className} font-sans h-screen mt-24 p-5`}
     >
-        {courses?.map((course: any) => <div className={"text-blue-500 cursor-pointer underline"} onClick={() => router.push(`/courses/${course.id}`)}>
+        {courses?.map((course: any) => <div className={"text-blue-500 cursor-pointer underline p-2"} onClick={() => router.push(`/courses/${course.id}`)}>
             {course.title}
         </div>)}
     </div>

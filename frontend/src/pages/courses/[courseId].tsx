@@ -1,6 +1,7 @@
 import {Geist, Geist_Mono} from "next/font/google";
 import {useEffect, useState} from "react";
 import {useRouter} from "next/router";
+import {useParams} from "next/navigation";
 
 const geistSans = Geist({
     variable: "--font-geist-sans",
@@ -15,14 +16,12 @@ const geistMono = Geist_Mono({
 export default function Course() {
 
     const router = useRouter();
-    const {courseId} = router.query;
+    const {courseId} = useParams();
     const [course, setCourse] = useState<any>();
     const [sectionVisibility, setSectionVisibility] = useState<any>({});
 
 
     useEffect(() => {
-
-        const courseId = 1;
 
         fetch(`/api/courses/${courseId}`)
             .then((res) => res.json())
